@@ -2,6 +2,7 @@
 #include <numeric>
 #include <iostream>
 #include <random>
+#include <cstring>
 #include "../include/shit_tensor.hpp"
 #include "../include/shit_errors.hpp"
 
@@ -28,9 +29,11 @@ namespace libshit::core{
         compute_strides();
     
         size_t bytes = total_elements * sizeof(float);
-        h_data = new float[total_elements]();
+        SHIT_CHECK(cudaHostAlloc((void**)&h_data, bytes, cudaHostAllocDefault));
+        std::memset(h_data, 0, bytes);
         SHIT_CHECK(cudaMalloc((void**)&d_data, bytes));
         initialize(init);
+        to_gpu();
     }
     
     ShitTensor::ShitTensor(const std::vector<int64_t>& dims, InitType init) {
@@ -41,13 +44,18 @@ namespace libshit::core{
         }
         
         compute_strides();
-        h_data = new float[total_elements]();
-        SHIT_CHECK(cudaMalloc((void**)&d_data, total_elements * sizeof(float)));
+        size_t bytes = total_elements * sizeof(float);
+        SHIT_CHECK(cudaHostAlloc((void**)&h_data, bytes, cudaHostAllocDefault));
+        std::memset(h_data, 0, bytes);
+        SHIT_CHECK(cudaMalloc((void**)&d_data, bytes));
         initialize(init);
+        to_gpu();
     }
     
     ShitTensor::~ShitTensor() {
-        delete[] h_data;
+        if (owns_h_data && h_data != nullptr) {
+            SHIT_CHECK(cudaFreeHost(h_data));
+        }
         if (d_data != nullptr) {
             SHIT_CHECK(cudaFree(d_data));
         }

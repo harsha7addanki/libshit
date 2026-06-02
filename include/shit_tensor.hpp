@@ -11,6 +11,7 @@
     #define SHIT_API
 #endif
 
+#include <cuda_runtime.h>
 #include <vector>
 #include <initializer_list>
 #include <cstdint>
@@ -27,6 +28,7 @@ namespace libshit::core{
 
         float* h_data; // CPU data
         float* d_data; // GPU data for HIP/CUDA
+        bool owns_h_data = true;
 
         void compute_strides();
         void initialize(InitType init);
@@ -63,7 +65,11 @@ namespace libshit::core{
         
         float& operator()(std::initializer_list<int64_t> indices);
         void set_data(float* h_ptr) {
+            if (owns_h_data && h_data != nullptr) {
+                cudaFreeHost(h_data);
+            }
             h_data = h_ptr; // set the host pointer to the provided data
+            owns_h_data = false;
             // TODO: add check if the data is on gpu so we dont put data on gpu if dev didnt want it there
             to_gpu(); // transfer this new data to the GPU
         }
