@@ -1,0 +1,52 @@
+# Build directories
+/build/
+
+# CMake files
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+CMakeLists.txt.user
+CompilerId*/
+CMakeFiles/
+*.cmake
+
+# Ninja / build system
+build.ninja
+*.ninja
+
+# Visual Studio / MSVC
+*.sln
+*.vcxproj*
+*.vcproj*
+*.user
+*.opensdf
+*.suo
+*.pdb
+*.ilk
+*.ipch
+*.log
+*.tlog
+*.obj
+*.exe
+*.lib
+*.dll
+*.exp
+*.cache
+
+# CUDA intermediate files
+*.cubin
+*.ptx
+*.fatbin
+*.linkinfo
+*.nvprof
+
+# VS Code
+.vscode/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Python
+__pycache__/
+*.py[cod]
