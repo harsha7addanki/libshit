@@ -1,6 +1,7 @@
 #ifndef LIBSHIT_LAYER_H
 #define LIBSHIT_LAYER_H
 #include "../include/libshit_core.h"
+#include "../include/optim/optimizer.hpp"
 #include <unordered_map>
 
 // Api to easily create DNN based AI models
@@ -65,10 +66,12 @@ namespace libshit::layers {
     class SHIT_API ShitModel: public ShitLayer {
     protected:
         libshit::core::ShitGradientRegistry registry;
-        libshit::core::ShitTensor* train_step(libshit::core::ShitTensor* input, libshit::core::ShitTensor* target, float lr);
+        std::unique_ptr<libshit::optim::ShitOptimizer> optimizer;
+        libshit::core::ShitTensor* train_step(libshit::core::ShitTensor* input, libshit::core::ShitTensor* target);
     
     public:
-        void train(std::vector<std::pair<libshit::core::ShitTensor*, libshit::core::ShitTensor*>>& data, int epochs, float lr);
+        void set_optimizer(std::unique_ptr<libshit::optim::ShitOptimizer> optimizer);
+        void train(std::vector<std::pair<libshit::core::ShitTensor*, libshit::core::ShitTensor*>>& data, int epochs);
     };
 
 

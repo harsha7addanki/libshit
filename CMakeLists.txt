@@ -31,6 +31,9 @@ add_library(libshit SHARED
     src/save/save.cpp
     include/save/save.hpp
     include/libshit.h
+    src/optim/optimizer.cpp
+    include/optim/optimizer.hpp
+    src/optim/optimizer.cu
 )
 
 target_compile_definitions(libshit PRIVATE LIBSHIT_EXPORTS)

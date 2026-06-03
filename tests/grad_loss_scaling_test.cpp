@@ -1,5 +1,6 @@
 #include "../include/shit_tensor.hpp"
 #include "../include/shit_gradients.hpp"
+#include "../include/optim/optimizer.hpp"
 #include <iostream>
 #include <cmath>
 
@@ -94,8 +95,8 @@ int main() {
     std::cout << "Applying scaled weight updates (lr=0.1)..." << std::endl;
     grad_W1->to_gpu();
     grad_W2->to_gpu();
-    update_weights(W1, grad_W1, 0.1f);
-    update_weights(W2, grad_W2, 0.1f);
+    libshit::optim::sgd(W1, grad_W1, 0.1f);
+    libshit::optim::sgd(W2, grad_W2, 0.1f);
 
     std::cout << "W1 after update:" << std::endl;
     print_matrix("W1 after", W1);

@@ -1,9 +1,10 @@
 #include "../include/libshit_core.h"
 #include "../include/layers/layers.hpp"
 #include <random>
+#include <memory>
 
 namespace libshit::layers {
-    libshit::core::ShitTensor* ShitModel::train_step(libshit::core::ShitTensor* input, libshit::core::ShitTensor* target, float lr) {
+    libshit::core::ShitTensor* ShitModel::train_step(libshit::core::ShitTensor* input, libshit::core::ShitTensor* target) {
         auto& tape = libshit::core::ShitTape::instance();
 
         tape.start();
@@ -25,21 +26,25 @@ namespace libshit::layers {
         for (auto& p : get_parameters()) {
             auto grad = registry.get_grad(p.get());
             if (grad) {
-                libshit::core::update_weights(p.get(), grad, lr);
+                optimizer->step(*p, *grad);
             }
         }
 
         return loss;
     }
 
-    void ShitModel::train(std::vector<std::pair<libshit::core::ShitTensor*, libshit::core::ShitTensor*>>& data, int epochs, float lr) {
+    void ShitModel::set_optimizer(std::unique_ptr<libshit::optim::ShitOptimizer> optimizer){
+        this->optimizer = std::move(optimizer);
+    }
+
+    void ShitModel::train(std::vector<std::pair<libshit::core::ShitTensor*, libshit::core::ShitTensor*>>& data, int epochs) {
         // if u cant understand this then learn to code before 
         for (int epoch = 0; epoch < epochs; ++epoch) {
             float epoch_loss = 0.0f;
             int batch_idx = 0;
             
             for (auto& [input, target] : data) {
-                auto loss_tensor = this->train_step(input, target, lr);
+                auto loss_tensor = this->train_step(input, target);
                 loss_tensor->to_cpu();
                 float current_loss = loss_tensor->cpu_ptr()[0];
 

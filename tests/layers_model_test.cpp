@@ -1,4 +1,5 @@
 #include "../include/layers/layers.hpp"
+#include "../include/optim/optimizer.hpp"
 #include <iostream>
 #include <vector>
 #include <memory>
@@ -55,6 +56,8 @@ int main() {
     std::cout << "Starting layers API model training test..." << std::endl;
 
     SimpleRegressionModel model;
+    auto optimizer = std::make_unique<libshit::optim::SGD>(0.01f);
+    model.set_optimizer(std::move(optimizer));
 
     std::vector<std::pair<ShitTensor*, ShitTensor*>> dataset;
     {
@@ -90,7 +93,7 @@ int main() {
 
     std::cout << "Baseline loss: " << baseline_loss << std::endl;
 
-    model.train(dataset, 40, 0.01f);
+    model.train(dataset, 40);
 
     auto final_output = model(dataset[0].first);
     float final_loss = compute_loss(final_output, dataset[0].second);

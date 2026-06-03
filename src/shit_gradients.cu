@@ -2,15 +2,6 @@
 #include "shit_gradients.hpp"
 #include "shit_tensor.hpp"
 
-// not actually a backward kernel but its related to gradients to here it goes
-__global__ void weight_update_kernel(float* weights, float* grad_weights, float learning_rate, int64_t size) {
-    int64_t idx = blockIdx.x * blockDim.x + threadIdx.x;
-
-    if (idx < size) {
-        weights[idx] -= learning_rate * grad_weights[idx];
-    }
-}
-
 __global__ void mse_backward_kernel(float* pred, float* target, float* grad_out, float* grad_pred, int64_t size) {
     int64_t idx = blockIdx.x * blockDim.x + threadIdx.x;
     
@@ -134,19 +125,6 @@ namespace libshit::core {
         
         mse_backward_kernel<<<blocks, threads>>>(
             pred->gpu_ptr(), target->gpu_ptr(), grad_out->gpu_ptr(), grad_pred->gpu_ptr(), size
-        );
-
-        cudaDeviceSynchronize();
-    }
-
-    void update_weights(ShitTensor* weights, ShitTensor* grad_weights, float learning_rate) {
-        int64_t size = weights->get_shape()[0] * weights->get_shape()[1]; // assuming 2d weights for simplicity, can be generalized later
-        
-        dim3 threads(256);
-        dim3 blocks((size + 255) / 256);
-        
-        weight_update_kernel<<<blocks, threads>>>(
-            weights->gpu_ptr(), grad_weights->gpu_ptr(), learning_rate, size
         );
 
         cudaDeviceSynchronize();
