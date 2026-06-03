@@ -3,6 +3,7 @@
 #include "../include/libshit_core.h"
 #include "../include/optim/optimizer.hpp"
 #include <unordered_map>
+#include <functional>
 
 // Api to easily create DNN based AI models
 namespace libshit::layers {
@@ -67,16 +68,19 @@ namespace libshit::layers {
     protected:
         libshit::core::ShitGradientRegistry registry;
         std::unique_ptr<libshit::optim::ShitOptimizer> optimizer;
+        std::function<libshit::core::ShitTensor*(libshit::core::ShitTensor*, libshit::core::ShitTensor*)> loss_func;
         libshit::core::ShitTensor* train_step(libshit::core::ShitTensor* input, libshit::core::ShitTensor* target);
     
     public:
         void set_optimizer(std::unique_ptr<libshit::optim::ShitOptimizer> optimizer);
+        void set_loss(std::function<libshit::core::ShitTensor*(libshit::core::ShitTensor*, libshit::core::ShitTensor*)> loss){loss_func = loss;};
         void train(std::vector<std::pair<libshit::core::ShitTensor*, libshit::core::ShitTensor*>>& data, int epochs);
     };
 
 
 
-    // Dense/Linear Layer just a normal layer 
+    // tf/keras on top fuck torch
+    // Dense Layer just a normal layer 
     class SHIT_API Dense : public ShitLayer {
     protected:
         int in_features;

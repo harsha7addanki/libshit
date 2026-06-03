@@ -10,7 +10,7 @@ namespace libshit::layers {
         tape.start();
 
         const auto& output = (*this)(input);
-        const auto& loss = libshit::core::mse(output, target);
+        const auto& loss = loss_func(output, target);
 
         registry.clear();
 

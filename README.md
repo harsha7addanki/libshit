@@ -56,6 +56,8 @@ Or run a single test executable directly:
 .\layers_model_tests.exe
 ```
 
+now personally i ignore all of that and just use my IDE tooling.
+
 ## Workspace Layout
 
 - `include/`: public headers

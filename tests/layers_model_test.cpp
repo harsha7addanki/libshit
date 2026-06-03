@@ -58,6 +58,7 @@ int main() {
     SimpleRegressionModel model;
     auto optimizer = std::make_unique<libshit::optim::SGD>(0.01f);
     model.set_optimizer(std::move(optimizer));
+    model.set_loss(libshit::core::mse);
 
     std::vector<std::pair<ShitTensor*, ShitTensor*>> dataset;
     {
