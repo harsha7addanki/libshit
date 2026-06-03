@@ -1,7 +1,6 @@
 # libshit
 
 A small CUDA-enabled C++ library with tensor operations, autograd-style gradient tape, and a lightweight layers API.
-(yeah i used copilot, some things are just annoying)
 
 ## Requirements
 
