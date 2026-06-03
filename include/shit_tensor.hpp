@@ -24,10 +24,10 @@ namespace libshit::core{
     private:
         std::vector<int64_t> shape; // its exactly like everything else
         std::vector<int64_t> strides; // precomputed stride for indexing
-        int64_t total_elements; // also js there
+        int64_t total_elements = 0; // also js there
 
-        float* h_data; // CPU data
-        float* d_data; // GPU data for HIP/CUDA
+        float* h_data = nullptr; // cpu pointer
+        float* d_data = nullptr; // gpu pointer for cuda(or hip if i ever compile it with that)
         bool owns_h_data = true;
 
         void compute_strides();
@@ -42,7 +42,7 @@ namespace libshit::core{
         ShitTensor(const ShitTensor&) = delete;
         ShitTensor& operator=(const ShitTensor&) = delete;
 
-        // non unified memory
+        // non unified memory(better)
         void to_gpu();
         void to_cpu();
 
@@ -67,10 +67,11 @@ namespace libshit::core{
         void set_data(float* h_ptr) {
             if (owns_h_data && h_data != nullptr) {
                 cudaFreeHost(h_data);
+                h_data = nullptr;
             }
             h_data = h_ptr; // set the host pointer to the provided data
             owns_h_data = false;
-            // TODO: add check if the data is on gpu so we dont put data on gpu if dev didnt want it there
+            // TODO: add check if the data is on gpu so we dont put data on gpu if they didnt want it there
             to_gpu(); // transfer this new data to the GPU
         }
     };

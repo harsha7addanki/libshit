@@ -116,9 +116,7 @@ int main() {
     free_tensor(output);
     free_tensor(target);
     free_tensor(loss);
-    free_tensor(grad_loss);
-    free_tensor(grad_W1);
-    free_tensor(grad_W2);
+    // grad_loss, grad_W1, and grad_W2 are owned by registry and will be freed by its destructor.
 
     return passed ? 0 : 1;
 }

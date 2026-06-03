@@ -29,11 +29,18 @@ namespace libshit::core{
         compute_strides();
     
         size_t bytes = total_elements * sizeof(float);
-        SHIT_CHECK(cudaHostAlloc((void**)&h_data, bytes, cudaHostAllocDefault));
-        std::memset(h_data, 0, bytes);
-        SHIT_CHECK(cudaMalloc((void**)&d_data, bytes));
+        if (bytes > 0) {
+            SHIT_CHECK(cudaHostAlloc((void**)&h_data, bytes, cudaHostAllocDefault));
+            std::memset(h_data, 0, bytes);
+            SHIT_CHECK(cudaMalloc((void**)&d_data, bytes));
+        } else {
+            h_data = nullptr;
+            d_data = nullptr;
+        }
         initialize(init);
-        to_gpu();
+        if (bytes > 0) {
+            to_gpu();
+        }
     }
     
     ShitTensor::ShitTensor(const std::vector<int64_t>& dims, InitType init) {
@@ -45,19 +52,36 @@ namespace libshit::core{
         
         compute_strides();
         size_t bytes = total_elements * sizeof(float);
-        SHIT_CHECK(cudaHostAlloc((void**)&h_data, bytes, cudaHostAllocDefault));
-        std::memset(h_data, 0, bytes);
-        SHIT_CHECK(cudaMalloc((void**)&d_data, bytes));
+        if (bytes > 0) {
+            SHIT_CHECK(cudaHostAlloc((void**)&h_data, bytes, cudaHostAllocDefault));
+            std::memset(h_data, 0, bytes);
+            SHIT_CHECK(cudaMalloc((void**)&d_data, bytes));
+        } else {
+            h_data = nullptr;
+            d_data = nullptr;
+        }
         initialize(init);
-        to_gpu();
+        if (bytes > 0) {
+            to_gpu();
+        }
     }
     
     ShitTensor::~ShitTensor() {
         if (owns_h_data && h_data != nullptr) {
-            SHIT_CHECK(cudaFreeHost(h_data));
+            unsigned int flags = 0;
+            cudaError_t host_flags_err = cudaHostGetFlags(&flags, h_data);
+            if (host_flags_err == cudaSuccess) {
+                SHIT_CHECK(cudaFreeHost(h_data));
+            } else {
+                std::cerr << "Warning: skipping cudaFreeHost for host pointer " << static_cast<const void*>(h_data)
+                          << " because cudaHostGetFlags failed: " << cudaGetErrorString(host_flags_err)
+                          << std::endl;
+            }
+            h_data = nullptr;
         }
         if (d_data != nullptr) {
             SHIT_CHECK(cudaFree(d_data));
+            d_data = nullptr;
         }
     }
     
@@ -98,11 +122,17 @@ namespace libshit::core{
 
     void ShitTensor::to_gpu() {
         size_t bytes = total_elements * sizeof(float);
+        if (bytes == 0) {
+            return;
+        }
         SHIT_CHECK(cudaMemcpy(d_data, h_data, bytes, cudaMemcpyHostToDevice));
     }
     
     void ShitTensor::to_cpu() {
         size_t bytes = total_elements * sizeof(float);
+        if (bytes == 0) {
+            return;
+        }
         SHIT_CHECK(cudaMemcpy(h_data, d_data, bytes, cudaMemcpyDeviceToHost));
     }
     

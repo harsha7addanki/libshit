@@ -8,6 +8,8 @@ namespace libshit::layers {
     class SHIT_API ShitLayer {
     protected:
         bool training = true;
+        bool built = false;
+
         std::shared_ptr<libshit::core::ShitTensor> register_parameter(const std::string& name, std::vector<int64_t> shape, libshit::core::ShitTensor::InitType init = libshit::core::ShitTensor::InitType::None){
             auto param = std::make_shared<libshit::core::ShitTensor>(shape, init);
             param->to_gpu();
@@ -23,7 +25,10 @@ namespace libshit::layers {
         virtual ~ShitLayer() = default;
         
         libshit::core::ShitTensor* operator()(libshit::core::ShitTensor* input) {
-            if (parameters.empty()) {build(input);}
+            if (!built) {
+                build(input);
+                built = true;
+            }
             return call(input);
         }
 
@@ -50,6 +55,8 @@ namespace libshit::layers {
             }
             return params;
         }
+
+        std::vector<std::shared_ptr<ShitLayer>> get_layers(){ return layers; }
 
         void train() { training = true; }
         void eval() { training = false; }

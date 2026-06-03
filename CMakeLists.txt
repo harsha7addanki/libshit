@@ -28,6 +28,9 @@ add_library(libshit SHARED
     include/shit_gradients.hpp
     include/shit_errors.hpp
     include/shit_tensor.hpp
+    src/save/save.cpp
+    include/save/save.hpp
+    include/libshit.h
 )
 
 target_compile_definitions(libshit PRIVATE LIBSHIT_EXPORTS)
@@ -54,78 +57,23 @@ target_compile_options(libshit PRIVATE
 
 
 # This is where libshit gets to be tested
-add_executable(basic_tests
-    tests/main_test.cpp
+file(GLOB TEST_SOURCES
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/*.cpp"
 )
 
-add_executable(grad_tests
-    tests/grad_test.cpp
-)
+foreach(test_src IN LISTS TEST_SOURCES)
+    get_filename_component(test_name ${test_src} NAME_WE)
+    add_executable(${test_name} ${test_src})
 
-add_executable(grad_loss_scaling_tests
-    tests/grad_loss_scaling_test.cpp
-)
+    target_include_directories(${test_name} PRIVATE include
+        $<TARGET_PROPERTY:CUDA::cudart,INTERFACE_INCLUDE_DIRECTORIES>)
+    target_link_libraries(${test_name} PRIVATE libshit)
 
-add_executable(layers_model_tests
-    tests/layers_model_test.cpp
-)
+    add_custom_command(TARGET ${test_name} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        $<TARGET_FILE:libshit>
+        $<TARGET_FILE_DIR:${test_name}>
+    )
 
-add_executable(mse_tests
-    tests/mse_test.cpp
-)
-
-target_include_directories(grad_tests PRIVATE include
-    $<TARGET_PROPERTY:CUDA::cudart,INTERFACE_INCLUDE_DIRECTORIES>)
-target_link_libraries(grad_tests PRIVATE libshit)
-
-target_include_directories(grad_loss_scaling_tests PRIVATE include
-    $<TARGET_PROPERTY:CUDA::cudart,INTERFACE_INCLUDE_DIRECTORIES>)
-target_link_libraries(grad_loss_scaling_tests PRIVATE libshit)
-
-target_include_directories(layers_model_tests PRIVATE include
-    $<TARGET_PROPERTY:CUDA::cudart,INTERFACE_INCLUDE_DIRECTORIES>)
-target_link_libraries(layers_model_tests PRIVATE libshit)
-
-target_include_directories(mse_tests PRIVATE include
-    $<TARGET_PROPERTY:CUDA::cudart,INTERFACE_INCLUDE_DIRECTORIES>)
-target_link_libraries(mse_tests PRIVATE libshit)
-
-target_include_directories(basic_tests PRIVATE include
-    $<TARGET_PROPERTY:CUDA::cudart,INTERFACE_INCLUDE_DIRECTORIES>)
-target_link_libraries(basic_tests PRIVATE libshit)
-
-add_custom_command(TARGET grad_tests POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-    $<TARGET_FILE:libshit>
-    $<TARGET_FILE_DIR:grad_tests>
-)
-
-add_custom_command(TARGET grad_loss_scaling_tests POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-    $<TARGET_FILE:libshit>
-    $<TARGET_FILE_DIR:grad_loss_scaling_tests>
-)
-
-add_custom_command(TARGET layers_model_tests POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-    $<TARGET_FILE:libshit>
-    $<TARGET_FILE_DIR:layers_model_tests>
-)
-
-add_custom_command(TARGET mse_tests POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-    $<TARGET_FILE:libshit>
-    $<TARGET_FILE_DIR:mse_tests>
-)
-
-add_custom_command(TARGET basic_tests POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-    $<TARGET_FILE:libshit>
-    $<TARGET_FILE_DIR:basic_tests>
-)
-
-add_test(NAME basic_tests COMMAND basic_tests)
-add_test(NAME grad_tests COMMAND grad_tests)
-add_test(NAME grad_loss_scaling_tests COMMAND grad_loss_scaling_tests)
-add_test(NAME layers_model_tests COMMAND layers_model_tests)
-add_test(NAME mse_tests COMMAND mse_tests)
+    add_test(NAME ${test_name} COMMAND ${test_name})
+endforeach()

@@ -13,7 +13,7 @@ namespace libshit::layers {
 
         registry.clear();
 
-        // Seed the loss gradient so backward propagation happens.
+        // fix the loss stuff with gradients
         auto loss_grad = registry.get_grad(loss);
         (*loss_grad)[0] = 1.0f;
         loss_grad->to_gpu();
@@ -33,6 +33,7 @@ namespace libshit::layers {
     }
 
     void ShitModel::train(std::vector<std::pair<libshit::core::ShitTensor*, libshit::core::ShitTensor*>>& data, int epochs, float lr) {
+        // if u cant understand this then learn to code before 
         for (int epoch = 0; epoch < epochs; ++epoch) {
             float epoch_loss = 0.0f;
             int batch_idx = 0;
@@ -63,7 +64,11 @@ namespace libshit::layers {
             {in_features, out_features},
             libshit::core::ShitTensor::InitType::XavierUniform
         );
-        bias = register_parameter("bias", {1, out_features});
+        bias = register_parameter(
+            "bias",
+            {1, out_features},
+            libshit::core::ShitTensor::InitType::XavierUniform
+        );
     }
 
     libshit::core::ShitTensor* Dense::call(libshit::core::ShitTensor* input) {
@@ -76,7 +81,7 @@ namespace libshit::layers {
     ReLU::ReLU() = default;
 
     void ReLU::build(libshit::core::ShitTensor* input) {
-        // ReLU has no trainable parameters.
+        // nun to train
         (void)input;
     }
 

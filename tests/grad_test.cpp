@@ -103,9 +103,7 @@ int main() {
     libshit::core::free_tensor(B);
     libshit::core::free_tensor(mat_out);
     libshit::core::free_tensor(relu_out);
-    libshit::core::free_tensor(grad_out);
-    libshit::core::free_tensor(grad_A);
-    libshit::core::free_tensor(grad_B);
+    // grad_out, grad_A, and grad_B are owned by registry and will be freed by its destructor.
 
     return passed ? 0 : 1;
 }
