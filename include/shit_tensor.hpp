@@ -76,10 +76,26 @@ namespace libshit::core{
         }
     };
 
+    // Existing ops
     SHIT_API ShitTensor* relu(ShitTensor* tensor);
     SHIT_API ShitTensor* matmul(ShitTensor* tensora, ShitTensor* tensorb);
     SHIT_API ShitTensor* add(ShitTensor* tensora, ShitTensor* tensorb);
     SHIT_API ShitTensor* mse(ShitTensor* pred, ShitTensor* target);
+
+    // New element-wise ops
+    SHIT_API ShitTensor* subtract(ShitTensor* a, ShitTensor* b);
+    SHIT_API ShitTensor* multiply(ShitTensor* a, ShitTensor* b);
+    SHIT_API ShitTensor* negate(ShitTensor* a);
+    SHIT_API ShitTensor* sigmoid(ShitTensor* a);
+    SHIT_API ShitTensor* tanh_act(ShitTensor* a);
+    SHIT_API ShitTensor* pow_op(ShitTensor* a, float exponent);
+
+    // New reduction ops
+    SHIT_API ShitTensor* sum_all(ShitTensor* a);
+
+    // New matrix ops
+    SHIT_API ShitTensor* transpose(ShitTensor* a);
+    SHIT_API ShitTensor* reshape(ShitTensor* a, const std::vector<int64_t>& new_shape);
 
     SHIT_API void free_tensor(ShitTensor* tensor);
 }

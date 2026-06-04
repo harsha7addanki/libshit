@@ -87,10 +87,79 @@ namespace libshit::core{
         void forward() override;
     };
 
+    // New graph nodes
+    struct SHIT_API SubtractNode : public ShitOperatorNode {
+        ShitTensor *A, *B, *out;
+        SubtractNode(ShitTensor *a, ShitTensor *b, ShitTensor *o) : A(a), B(b), out(o) {}
+        void backward(ShitGradientRegistry& registry) override;
+        void forward() override;
+    };
+
+    struct SHIT_API MultiplyNode : public ShitOperatorNode {
+        ShitTensor *A, *B, *out;
+        MultiplyNode(ShitTensor *a, ShitTensor *b, ShitTensor *o) : A(a), B(b), out(o) {}
+        void backward(ShitGradientRegistry& registry) override;
+        void forward() override;
+    };
+
+    struct SHIT_API NegateNode : public ShitOperatorNode {
+        ShitTensor *input, *out;
+        NegateNode(ShitTensor *in, ShitTensor *o) : input(in), out(o) {}
+        void backward(ShitGradientRegistry& registry) override;
+        void forward() override;
+    };
+
+    struct SHIT_API SigmoidNode : public ShitOperatorNode {
+        ShitTensor *input, *out;
+        SigmoidNode(ShitTensor *in, ShitTensor *o) : input(in), out(o) {}
+        void backward(ShitGradientRegistry& registry) override;
+        void forward() override;
+    };
+
+    struct SHIT_API TanhNode : public ShitOperatorNode {
+        ShitTensor *input, *out;
+        TanhNode(ShitTensor *in, ShitTensor *o) : input(in), out(o) {}
+        void backward(ShitGradientRegistry& registry) override;
+        void forward() override;
+    };
+
+    struct SHIT_API PowNode : public ShitOperatorNode {
+        ShitTensor *A, *out;
+        float exponent;
+        PowNode(ShitTensor *a, float exp, ShitTensor *o) : A(a), exponent(exp), out(o) {}
+        void backward(ShitGradientRegistry& registry) override;
+        void forward() override;
+    };
+
+    struct SHIT_API SumAllNode : public ShitOperatorNode {
+        ShitTensor *input, *out;
+        SumAllNode(ShitTensor *in, ShitTensor *o) : input(in), out(o) {}
+        void backward(ShitGradientRegistry& registry) override;
+        void forward() override;
+    };
+
+    struct SHIT_API TransposeNode : public ShitOperatorNode {
+        ShitTensor *input, *out;
+        TransposeNode(ShitTensor *in, ShitTensor *o) : input(in), out(o) {}
+        void backward(ShitGradientRegistry& registry) override;
+        void forward() override;
+    };
+
+    // Existing backward declarations
     SHIT_API void backward_add(ShitTensor* grad_out, ShitTensor* A, ShitTensor* B, ShitTensor* grad_A, ShitTensor* grad_B);
     SHIT_API void backward_matmul(ShitTensor* grad_out, ShitTensor* A, ShitTensor* B, ShitTensor* grad_A, ShitTensor* grad_B);
     SHIT_API void backward_relu(ShitTensor* grad_out, ShitTensor* input, ShitTensor* grad_input);
     SHIT_API void backward_mse(ShitTensor* grad_out, ShitTensor* pred, ShitTensor* target, ShitTensor* grad_pred);
+
+    // New backward declarations
+    SHIT_API void backward_subtract(ShitTensor* grad_out, ShitTensor* A, ShitTensor* B, ShitTensor* grad_A, ShitTensor* grad_B);
+    SHIT_API void backward_multiply(ShitTensor* grad_out, ShitTensor* A, ShitTensor* B, ShitTensor* grad_A, ShitTensor* grad_B);
+    SHIT_API void backward_negate(ShitTensor* grad_out, ShitTensor* input, ShitTensor* grad_input);
+    SHIT_API void backward_sigmoid(ShitTensor* grad_out, ShitTensor* output, ShitTensor* grad_input);
+    SHIT_API void backward_tanh(ShitTensor* grad_out, ShitTensor* output, ShitTensor* grad_input);
+    SHIT_API void backward_pow(ShitTensor* grad_out, ShitTensor* A, float exponent, ShitTensor* grad_A);
+    SHIT_API void backward_sum_all(ShitTensor* grad_out, ShitTensor* A, ShitTensor* grad_A);
+    SHIT_API void backward_transpose(ShitTensor* grad_out, ShitTensor* A, ShitTensor* grad_A);
 
     SHIT_API void update_weights(ShitTensor* weights, ShitTensor* grad_weights, float learning_rate);
 }
