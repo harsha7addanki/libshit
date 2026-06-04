@@ -4,6 +4,7 @@
 #include "../include/optim/optimizer.hpp"
 #include <unordered_map>
 #include <functional>
+#include <random>
 
 // Api to easily create DNN based AI models
 namespace libshit::layers {
@@ -102,6 +103,113 @@ namespace libshit::layers {
         void build(libshit::core::ShitTensor* input) override;
         libshit::core::ShitTensor* call(libshit::core::ShitTensor* input) override;
     };
-}
+
+        // ========== New Layers ==========
+
+        // LeakyReLU
+        class SHIT_API LeakyReLU : public ShitLayer {
+        protected:
+            float alpha;
+        public:
+            LeakyReLU(float alpha_val = 0.01f) : alpha(alpha_val) {}
+            void build(libshit::core::ShitTensor* input) override;
+            libshit::core::ShitTensor* call(libshit::core::ShitTensor* input) override;
+        };
+
+        // Sigmoid
+        class SHIT_API Sigmoid : public ShitLayer {
+        public:
+            Sigmoid() = default;
+            void build(libshit::core::ShitTensor* input) override;
+            libshit::core::ShitTensor* call(libshit::core::ShitTensor* input) override;
+        };
+
+        // Tanh
+        class SHIT_API Tanh : public ShitLayer {
+        public:
+            Tanh() = default;
+            void build(libshit::core::ShitTensor* input) override;
+            libshit::core::ShitTensor* call(libshit::core::ShitTensor* input) override;
+        };
+
+        // Softmax
+        class SHIT_API Softmax : public ShitLayer {
+        public:
+            Softmax() = default;
+            void build(libshit::core::ShitTensor* input) override;
+            libshit::core::ShitTensor* call(libshit::core::ShitTensor* input) override;
+        };
+
+        // Dropout
+        class SHIT_API Dropout : public ShitLayer {
+        protected:
+            float probability;
+        public:
+            Dropout(float p = 0.5f) : probability(p) {}
+            void build(libshit::core::ShitTensor* input) override;
+            libshit::core::ShitTensor* call(libshit::core::ShitTensor* input) override;
+        };
+
+        // Flatten
+        class SHIT_API Flatten : public ShitLayer {
+        public:
+            Flatten() = default;
+            void build(libshit::core::ShitTensor* input) override;
+            libshit::core::ShitTensor* call(libshit::core::ShitTensor* input) override;
+        };
+
+        // Embedding
+        class SHIT_API Embedding : public ShitLayer {
+        protected:
+            int64_t vocab_size;
+            int64_t embedding_dim;
+            std::shared_ptr<libshit::core::ShitTensor> weight;
+        public:
+            Embedding(int64_t vocab, int64_t dim) : vocab_size(vocab), embedding_dim(dim) {}
+            void build(libshit::core::ShitTensor* input) override;
+            libshit::core::ShitTensor* call(libshit::core::ShitTensor* input) override;
+            int64_t get_embedding_dim() const { return embedding_dim; }
+        };
+
+        // LayerNorm
+        class SHIT_API LayerNorm : public ShitLayer {
+        protected:
+            int64_t normalized_shape;
+            float eps;
+            std::shared_ptr<libshit::core::ShitTensor> gamma;
+            std::shared_ptr<libshit::core::ShitTensor> beta;
+        public:
+            LayerNorm(int64_t norm_shape, float epsilon = 1e-5f)
+                : normalized_shape(norm_shape), eps(epsilon) {}
+            void build(libshit::core::ShitTensor* input) override;
+            libshit::core::ShitTensor* call(libshit::core::ShitTensor* input) override;
+        };
+
+        // RMSNorm
+        class SHIT_API RMSNorm : public ShitLayer {
+        protected:
+            int64_t normalized_shape;
+            float eps;
+            std::shared_ptr<libshit::core::ShitTensor> gamma;
+        public:
+            RMSNorm(int64_t norm_shape, float epsilon = 1e-5f)
+                : normalized_shape(norm_shape), eps(epsilon) {}
+            void build(libshit::core::ShitTensor* input) override;
+            libshit::core::ShitTensor* call(libshit::core::ShitTensor* input) override;
+        };
+
+        // Sequential container
+        class SHIT_API Sequential : public ShitLayer {
+        public:
+            Sequential() = default;
+            void build(libshit::core::ShitTensor* input) override;
+            libshit::core::ShitTensor* call(libshit::core::ShitTensor* input) override;
+
+            template<typename T, typename... Args>
+            std::shared_ptr<T> add_module(Args&&... args) {
+                return add<T>(std::forward<Args>(args)...);
+            }
+        };
+    }
 
 #endif

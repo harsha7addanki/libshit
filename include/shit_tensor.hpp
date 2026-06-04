@@ -97,6 +97,23 @@ namespace libshit::core{
     SHIT_API ShitTensor* transpose(ShitTensor* a);
     SHIT_API ShitTensor* reshape(ShitTensor* a, const std::vector<int64_t>& new_shape);
 
-    SHIT_API void free_tensor(ShitTensor* tensor);
+        // Additional activations
+        SHIT_API ShitTensor* leaky_relu(ShitTensor* a, float alpha);
+        SHIT_API ShitTensor* softmax(ShitTensor* a);
+
+        // Embedding / lookup
+        SHIT_API ShitTensor* embedding_lookup(ShitTensor* weight, int64_t index);
+
+        // Dropout
+        SHIT_API ShitTensor* dropout(ShitTensor* a, float probability);
+
+        // Element-wise helpers for normalisation layers
+        SHIT_API ShitTensor* div_scalar(ShitTensor* a, float scalar);
+        SHIT_API ShitTensor* add_scalar(ShitTensor* a, float scalar);
+        SHIT_API ShitTensor* sqrt_op(ShitTensor* a);
+        SHIT_API ShitTensor* exp_op(ShitTensor* a);
+        SHIT_API ShitTensor* rsqrt(ShitTensor* a);
+
+        SHIT_API void free_tensor(ShitTensor* tensor);
 }
 #endif

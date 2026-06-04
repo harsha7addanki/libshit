@@ -1,5 +1,7 @@
 #include <cuda_runtime.h>
+#include <curand_kernel.h>
 #include <cmath>
+#include <ctime>
 #include "shit_tensor.hpp"
 #include "shit_errors.hpp"
 #include "shit_gradients.hpp"
@@ -388,6 +390,281 @@ SHIT_API ShitTensor* reshape(ShitTensor* a, const std::vector<int64_t>& new_shap
     out->set_data(a->cpu_ptr());
     // Copy GPU data too
     cudaMemcpy(out->gpu_ptr(), a->gpu_ptr(), a->size() * sizeof(float), cudaMemcpyDeviceToDevice);
+    return out;
+}
+
+// ========== LeakyReLU ==========
+
+__global__ void leaky_relu_kernel(float* input, float* output, float alpha, int64_t size) {
+    int64_t idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < size) {
+        output[idx] = input[idx] >= 0.0f ? input[idx] : alpha * input[idx];
+    }
+}
+
+SHIT_API ShitTensor* leaky_relu(ShitTensor* a, float alpha) {
+    int64_t size = a->size();
+    int threads = 256;
+    int blocks = (size + threads - 1) / threads;
+    ShitTensor* out = new ShitTensor(a->tensor_shape());
+
+    if (ShitTape::instance().is_active()) {
+        // Note: LeakyReLU has a custom backward; we'll handle it as a simple node
+        // For now, we push a ReLUNode-derived; tape node not critical for layer op
+    }
+
+    leaky_relu_kernel<<<blocks, threads>>>(a->gpu_ptr(), out->gpu_ptr(), alpha, size);
+    SHIT_CHECK(cudaGetLastError());
+    SHIT_CHECK(cudaDeviceSynchronize());
+    return out;
+}
+
+// ========== Softmax ==========
+
+__global__ void softmax_kernel(float* input, float* output, int64_t rows, int64_t cols) {
+    // Each block handles one row
+    extern __shared__ float shared[];
+    int64_t row = blockIdx.x;
+    if (row >= rows) return;
+
+    float* row_in = input + row * cols;
+    float* row_out = output + row * cols;
+
+    // Find max for numerical stability
+    float max_val = -INFINITY;
+    for (int64_t i = threadIdx.x; i < cols; i += blockDim.x) {
+        max_val = fmaxf(max_val, row_in[i]);
+    }
+    // Reduce max across threads
+    if (blockDim.x <= 32) {
+        // warp shuffle
+        for (int offset = 16; offset > 0; offset >>= 1)
+            max_val = fmaxf(max_val, __shfl_xor_sync(0xFFFFFFFF, max_val, offset));
+    } else {
+        // shared memory reduction
+        shared[threadIdx.x] = max_val;
+        __syncthreads();
+        for (int s = blockDim.x / 2; s > 0; s >>= 1) {
+            if (threadIdx.x < s) shared[threadIdx.x] = fmaxf(shared[threadIdx.x], shared[threadIdx.x + s]);
+            __syncthreads();
+        }
+        max_val = shared[0];
+    }
+
+    // Compute exp sum
+    float sum = 0.0f;
+    for (int64_t i = threadIdx.x; i < cols; i += blockDim.x) {
+        float e = expf(row_in[i] - max_val);
+        row_out[i] = e;
+        sum += e;
+    }
+    // Reduce sum across threads
+    if (blockDim.x <= 32) {
+        for (int offset = 16; offset > 0; offset >>= 1)
+            sum += __shfl_xor_sync(0xFFFFFFFF, sum, offset);
+    } else {
+        shared[threadIdx.x] = sum;
+        __syncthreads();
+        for (int s = blockDim.x / 2; s > 0; s >>= 1) {
+            if (threadIdx.x < s) shared[threadIdx.x] += shared[threadIdx.x + s];
+            __syncthreads();
+        }
+        sum = shared[0];
+    }
+
+    // Normalize
+    for (int64_t i = threadIdx.x; i < cols; i += blockDim.x) {
+        row_out[i] /= sum;
+    }
+}
+
+SHIT_API ShitTensor* softmax(ShitTensor* a) {
+    const auto& shape = a->get_shape();
+    if (shape.size() < 2) {
+        std::cerr << "LIBSHIT SOFTMAX ERROR: Input must be at least 2D." << std::endl;
+        exit(1);
+    }
+    int64_t rows = 1;
+    for (size_t i = 0; i < shape.size() - 1; ++i) rows *= shape[i];
+    int64_t cols = shape.back();
+
+    ShitTensor* out = new ShitTensor(a->tensor_shape());
+    int threads = 256;
+    int blocks = (int)rows;
+
+    // shared memory for max + sum reduction per row
+    size_t shared_bytes = threads * sizeof(float);
+
+    if (ShitTape::instance().is_active()) {
+        // tape node placeholder — softmax grad not yet wired in full autodiff
+    }
+
+    softmax_kernel<<<blocks, threads, shared_bytes>>>(
+        a->gpu_ptr(), out->gpu_ptr(), rows, cols);
+    SHIT_CHECK(cudaGetLastError());
+    SHIT_CHECK(cudaDeviceSynchronize());
+    return out;
+}
+
+// ========== Embedding Lookup ==========
+
+__global__ void embedding_lookup_kernel(const float* weight, float* output,
+                                         int64_t vocab_size, int64_t emb_dim,
+                                         int64_t index) {
+    int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i < emb_dim) {
+        output[i] = weight[index * emb_dim + i];
+    }
+}
+
+SHIT_API ShitTensor* embedding_lookup(ShitTensor* weight, int64_t index) {
+    const auto& shape = weight->get_shape();
+    if (shape.size() != 2) {
+        std::cerr << "LIBSHIT EMBEDDING ERROR: Weight must be 2D (vocab x emb_dim)." << std::endl;
+        exit(1);
+    }
+    int64_t emb_dim = shape[1];
+    ShitTensor* out = new ShitTensor({1, emb_dim});
+
+    int threads = 256;
+    int blocks = (emb_dim + threads - 1) / threads;
+    embedding_lookup_kernel<<<blocks, threads>>>(
+        weight->gpu_ptr(), out->gpu_ptr(), shape[0], emb_dim, index);
+    SHIT_CHECK(cudaGetLastError());
+    SHIT_CHECK(cudaDeviceSynchronize());
+    return out;
+}
+
+// ========== Dropout ==========
+
+__global__ void dropout_kernel(float* input, float* output, float* mask,
+                                float prob, int64_t size, curandState* states) {
+    int64_t idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx >= size) return;
+    curandState local_state = states[idx];
+    float r = curand_uniform(&local_state);
+    mask[idx] = (r > prob) ? 1.0f / (1.0f - prob) : 0.0f;
+    output[idx] = input[idx] * mask[idx];
+    states[idx] = local_state;
+}
+
+__global__ void init_curand_states(curandState* states, int64_t size, unsigned long long seed) {
+    int64_t idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < size) {
+        curand_init(seed, idx, 0, &states[idx]);
+    }
+}
+
+SHIT_API ShitTensor* dropout(ShitTensor* a, float probability) {
+    int64_t size = a->size();
+    int threads = 256;
+    int blocks = (size + threads - 1) / threads;
+    ShitTensor* out = new ShitTensor(a->tensor_shape());
+
+    // Allocate mask and random states (persisted across calls for simplicity)
+    static ShitTensor* mask_tensor = nullptr;
+    static curandState* d_states = nullptr;
+    static int64_t cached_size = 0;
+
+    if (size != cached_size) {
+        if (mask_tensor) free_tensor(mask_tensor);
+        if (d_states) cudaFree(d_states);
+        mask_tensor = new ShitTensor({size});
+        cudaMalloc(&d_states, size * sizeof(curandState));
+        // Init random states
+        int init_blocks = (size + 255) / 256;
+        init_curand_states<<<init_blocks, 256>>>(d_states, size, time(nullptr));
+        SHIT_CHECK(cudaGetLastError());
+        SHIT_CHECK(cudaDeviceSynchronize());
+        cached_size = size;
+    }
+
+    dropout_kernel<<<blocks, threads>>>(
+        a->gpu_ptr(), out->gpu_ptr(), mask_tensor->gpu_ptr(), probability, size, d_states);
+    SHIT_CHECK(cudaGetLastError());
+    SHIT_CHECK(cudaDeviceSynchronize());
+    return out;
+}
+
+// ========== Element-wise scalar ops ==========
+
+__global__ void div_scalar_kernel(float* input, float* output, float scalar, int64_t size) {
+    int64_t idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < size) output[idx] = input[idx] / scalar;
+}
+
+__global__ void add_scalar_kernel(float* input, float* output, float scalar, int64_t size) {
+    int64_t idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < size) output[idx] = input[idx] + scalar;
+}
+
+__global__ void sqrt_kernel(float* input, float* output, int64_t size) {
+    int64_t idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < size) output[idx] = sqrtf(input[idx]);
+}
+
+__global__ void exp_kernel(float* input, float* output, int64_t size) {
+    int64_t idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < size) output[idx] = expf(input[idx]);
+}
+
+__global__ void rsqrt_kernel(float* input, float* output, int64_t size) {
+    int64_t idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < size) output[idx] = rsqrtf(input[idx]);
+}
+
+SHIT_API ShitTensor* div_scalar(ShitTensor* a, float scalar) {
+    int64_t size = a->size();
+    int threads = 256;
+    int blocks = (size + threads - 1) / threads;
+    ShitTensor* out = new ShitTensor(a->tensor_shape());
+    div_scalar_kernel<<<blocks, threads>>>(a->gpu_ptr(), out->gpu_ptr(), scalar, size);
+    SHIT_CHECK(cudaGetLastError());
+    SHIT_CHECK(cudaDeviceSynchronize());
+    return out;
+}
+
+SHIT_API ShitTensor* add_scalar(ShitTensor* a, float scalar) {
+    int64_t size = a->size();
+    int threads = 256;
+    int blocks = (size + threads - 1) / threads;
+    ShitTensor* out = new ShitTensor(a->tensor_shape());
+    add_scalar_kernel<<<blocks, threads>>>(a->gpu_ptr(), out->gpu_ptr(), scalar, size);
+    SHIT_CHECK(cudaGetLastError());
+    SHIT_CHECK(cudaDeviceSynchronize());
+    return out;
+}
+
+SHIT_API ShitTensor* sqrt_op(ShitTensor* a) {
+    int64_t size = a->size();
+    int threads = 256;
+    int blocks = (size + threads - 1) / threads;
+    ShitTensor* out = new ShitTensor(a->tensor_shape());
+    sqrt_kernel<<<blocks, threads>>>(a->gpu_ptr(), out->gpu_ptr(), size);
+    SHIT_CHECK(cudaGetLastError());
+    SHIT_CHECK(cudaDeviceSynchronize());
+    return out;
+}
+
+SHIT_API ShitTensor* exp_op(ShitTensor* a) {
+    int64_t size = a->size();
+    int threads = 256;
+    int blocks = (size + threads - 1) / threads;
+    ShitTensor* out = new ShitTensor(a->tensor_shape());
+    exp_kernel<<<blocks, threads>>>(a->gpu_ptr(), out->gpu_ptr(), size);
+    SHIT_CHECK(cudaGetLastError());
+    SHIT_CHECK(cudaDeviceSynchronize());
+    return out;
+}
+
+SHIT_API ShitTensor* rsqrt(ShitTensor* a) {
+    int64_t size = a->size();
+    int threads = 256;
+    int blocks = (size + threads - 1) / threads;
+    ShitTensor* out = new ShitTensor(a->tensor_shape());
+    rsqrt_kernel<<<blocks, threads>>>(a->gpu_ptr(), out->gpu_ptr(), size);
+    SHIT_CHECK(cudaGetLastError());
+    SHIT_CHECK(cudaDeviceSynchronize());
     return out;
 }
 

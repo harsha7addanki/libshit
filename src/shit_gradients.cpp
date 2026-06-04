@@ -75,8 +75,19 @@ namespace libshit::core {
     }
 
 
-    // MSENode implementation
-    void MSENode::backward(ShitGradientRegistry& registry) {
+    // LeakyReLUNode implementation
+        void LeakyReLUNode::backward(ShitGradientRegistry& registry) {
+            ShitTensor* grad_input = registry.get_grad(input);
+            ShitTensor* grad_output = registry.get_grad(out);
+            backward_leaky_relu(grad_output, input, alpha, grad_input);
+        }
+
+        void LeakyReLUNode::forward() {
+            out = leaky_relu(input, alpha);
+        }
+
+        // MSENode implementation
+        void MSENode::backward(ShitGradientRegistry& registry) {
         ShitTensor* grad_input = registry.get_grad(input);
         ShitTensor* grad_output = registry.get_grad(out);
 

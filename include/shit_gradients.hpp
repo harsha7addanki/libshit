@@ -87,7 +87,15 @@ namespace libshit::core{
         void forward() override;
     };
 
-    // New graph nodes
+        struct SHIT_API LeakyReLUNode : public ShitOperatorNode {
+            ShitTensor *input, *out;
+            float alpha;
+            LeakyReLUNode(ShitTensor *in, float a, ShitTensor *o) : input(in), alpha(a), out(o) {}
+            void backward(ShitGradientRegistry& registry) override;
+            void forward() override;
+        };
+
+        // New graph nodes
     struct SHIT_API SubtractNode : public ShitOperatorNode {
         ShitTensor *A, *B, *out;
         SubtractNode(ShitTensor *a, ShitTensor *b, ShitTensor *o) : A(a), B(b), out(o) {}
@@ -150,6 +158,7 @@ namespace libshit::core{
     SHIT_API void backward_matmul(ShitTensor* grad_out, ShitTensor* A, ShitTensor* B, ShitTensor* grad_A, ShitTensor* grad_B);
     SHIT_API void backward_relu(ShitTensor* grad_out, ShitTensor* input, ShitTensor* grad_input);
     SHIT_API void backward_mse(ShitTensor* grad_out, ShitTensor* pred, ShitTensor* target, ShitTensor* grad_pred);
+        SHIT_API void backward_leaky_relu(ShitTensor* grad_out, ShitTensor* input, float alpha, ShitTensor* grad_input);
 
     // New backward declarations
     SHIT_API void backward_subtract(ShitTensor* grad_out, ShitTensor* A, ShitTensor* B, ShitTensor* grad_A, ShitTensor* grad_B);

@@ -151,7 +151,27 @@ __global__ void transpose_backward_kernel(
     }
 }
 
+__global__ void leaky_relu_backward_kernel(
+    const float* grad_out, const float* input, float alpha,
+    float* grad_in, int64_t size)
+{
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i < size) {
+        float grad = input[i] >= 0.0f ? grad_out[i] : alpha * grad_out[i];
+        atomicAdd(&grad_in[i], grad);
+    }
+}
+
 namespace libshit::core {
+    void backward_leaky_relu(ShitTensor* grad_out, ShitTensor* input, float alpha, ShitTensor* grad_input) {
+        int64_t size = input->size();
+        dim3 threads(256);
+        dim3 blocks((size + 255) / 256);
+        leaky_relu_backward_kernel<<<blocks, threads>>>(
+            grad_out->gpu_ptr(), input->gpu_ptr(), alpha, grad_input->gpu_ptr(), size);
+        cudaDeviceSynchronize();
+    }
+
     void backward_relu(ShitTensor* grad_out, ShitTensor* input, ShitTensor* grad_input) {
         int64_t size = input->size();
         
